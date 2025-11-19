@@ -1,0 +1,624 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
+  <title>HomeCare Companion</title>
+  <style>
+    /* --- Simple mobile-first styles --- */
+    :root{
+      --bg1:#ffecd2; --bg2:#fcb69f; --primary:#ff9a9e; --accent:#ffa585; --surface:#ffffff;
+      --muted:#999; --text:#333; --radius:18px; --ui-gap:14px;
+      --touch-size:44px;
+    }
+    html,body{height:100%;margin:0;font-family:Quicksand,system-ui,-apple-system,Segoe UI,Roboto,"Helvetica Neue",Arial;}
+    body{
+      background:linear-gradient(135deg,var(--bg1),var(--bg2));
+      padding:20px; -webkit-font-smoothing:antialiased; color:var(--text);
+      display:flex; align-items:flex-start; justify-content:center;
+    }
+    .app {
+      width:100%; max-width:420px; background:transparent;
+    }
+    .card{
+      background:var(--surface); border-radius:24px; padding:18px; box-shadow:0 8px 24px rgba(0,0,0,0.12);
+      margin-bottom:16px;
+    }
+    header{display:flex; align-items:center; justify-content:space-between; gap:12px; margin-bottom:12px;}
+    .title{font-size:20px; font-weight:700; color:var(--primary);}
+    .subtitle{font-size:13px; color:var(--muted);}
+    .creature-wrap{display:flex; flex-direction:column; align-items:center; gap:8px;}
+    /* blob svg sizes */
+    .creature { width:160px; height:160px; }
+    .status{font-weight:600; color:var(--primary);}
+    .stats{display:flex; gap:10px; margin-top:8px;}
+    .stat{flex:1; text-align:center; background:linear-gradient(180deg, rgba(255,255,255,0.8), rgba(255,255,255,0.95)); padding:10px; border-radius:14px;}
+    .stat .value{font-size:18px; font-weight:700; color:var(--primary);}
+    .progress-track{height:18px; background:#f0f0f0; border-radius:9px; overflow:hidden;}
+    .progress-fill{height:100%; background:linear-gradient(90deg,var(--accent),var(--primary)); width:0%; display:flex; align-items:center; justify-content:center; color:white; font-weight:700; font-size:12px;}
+    /* Tasks list */
+    .tasks-list{display:flex; flex-direction:column; gap:8px;}
+    .task-item{display:flex; align-items:center; gap:12px; padding:12px; border-radius:12px; background:linear-gradient(180deg,#fff, #fff); cursor:pointer; user-select:none; border:1px solid #f2f2f2;}
+    .task-checkbox{min-width:36px; min-height:36px; width:36px; height:36px; border-radius:10px; border:2px solid #eee; display:flex; align-items:center; justify-content:center; font-weight:700; color:white;}
+    .task-name{flex:1; font-weight:600;}
+    .task-points{font-weight:700; color:var(--primary); font-size:13px;}
+    .completed .task-name{color:#bbb; text-decoration:line-through;}
+    .completed .task-checkbox{background:var(--primary); border-color:var(--primary);}
+    /* bottom nav */
+    .nav{display:flex; gap:8px; justify-content:space-between; margin-top:8px;}
+    .nav button{flex:1; padding:10px 8px; border-radius:12px; border:none; background:transparent; font-weight:700; color:var(--muted);}
+    .nav button.active{background:linear-gradient(90deg,var(--accent),var(--primary)); color:white;}
+    /* customization */
+    .color-grid{display:grid; grid-template-columns:repeat(4,1fr); gap:8px;}
+    .color-swatch{padding-top:100%; border-radius:12px; position:relative; cursor:pointer;}
+    .color-swatch-inner{position:absolute; inset:8px; border-radius:8px;}
+    .accessory-grid{display:flex; gap:8px; flex-wrap:wrap;}
+    .accessory-btn{padding:10px; border-radius:12px; border:1px solid #eee; min-width:48px; text-align:center; font-size:20px;}
+    .accessory-btn.locked{opacity:0.3; cursor:not-allowed;}
+    /* responsive small */
+    @media (max-width:420px){ body{padding:14px;} .creature{width:140px;height:140px;} }
+    .small{font-size:12px;color:var(--muted);}
+    .center{text-align:center;}
+  </style>
+</head>
+<body>
+  <div class="app" role="application" aria-label="HomeCare Companion">
+    <!-- Header / Home -->
+    <div id="homeView" class="card" aria-hidden="false">
+      <header>
+        <div>
+          <div class="title" id="appTitle">HomeCare Companion</div>
+          <div class="subtitle" id="welcomeText">Let's make your home feel peaceful, one small task at a time.</div>
+        </div>
+        <div style="text-align:right">
+          <div class="small">Level</div>
+          <div style="font-weight:800;color:var(--primary); font-size:18px" id="levelBadge">1</div>
+        </div>
+      </header>
+
+      <div class="creature-wrap card" style="padding:14px;">
+        <!-- simple round blob SVG (easy to style) -->
+        <svg class="creature" viewBox="0 0 200 200" id="creatureSVG" aria-hidden="true">
+          <ellipse cx="100" cy="130" rx="45" ry="12" fill="rgba(0,0,0,0.08)"/>
+          <circle cx="100" cy="90" r="70" id="blobBody" fill="#FFB6D9"/>
+          <circle cx="75" cy="85" r="10" fill="#2C1810"/>
+          <circle cx="125" cy="85" r="10" fill="#2C1810"/>
+          <circle cx="78" cy="82" r="3" fill="#fff"/>
+          <circle cx="128" cy="82" r="3" fill="#fff"/>
+          <path d="M85 110 Q100 118 115 110" stroke="#2C1810" stroke-width="3" fill="none" stroke-linecap="round"/>
+          <g id="accessoryLayer"></g>
+        </svg>
+        <div class="status" id="creatureStatus">Content &amp; Ready</div>
+
+        <div class="stats" style="margin-top:12px;">
+          <div class="stat">
+            <div class="small">Today</div>
+            <div class="value" id="todayCount">0/0</div>
+          </div>
+          <div class="stat">
+            <div class="small">Points</div>
+            <div class="value" id="pointsTotal">0</div>
+          </div>
+        </div>
+
+        <div style="margin-top:12px; width:100%;">
+          <div class="small" style="display:flex; justify-content:space-between; margin-bottom:6px;">
+            <span>Daily Progress</span><span id="progressPercent">0%</span>
+          </div>
+          <div class="progress-track"><div class="progress-fill" id="progressFill">0%</div></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Tasks Screen -->
+    <div id="tasksView" class="card" style="display:none;">
+      <div style="display:flex; justify-content:space-between; align-items:center;">
+        <div>
+          <div class="title">Daily Tasks</div>
+          <div class="subtitle">Small tasks, big transformation.</div>
+        </div>
+        <div>
+          <button id="regenBtn" style="border:none;background:transparent;color:var(--muted);font-weight:700;">Regenerate</button>
+        </div>
+      </div>
+
+      <div style="margin-top:12px;" id="taskContainer">
+        <!-- task list rendered here -->
+      </div>
+      <div class="small center" style="margin-top:10px;">Tasks refresh daily. Same task will not reappear for 2 days.</div>
+    </div>
+
+    <!-- Progress Screen -->
+    <div id="progressView" class="card" style="display:none;">
+      <div class="title">Your Progress</div>
+      <div style="margin-top:10px;" class="small">Weekly & all-time statistics</div>
+
+      <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-top:12px;">
+        <div class="card" style="padding:12px;">
+          <div class="small">This week</div>
+          <div style="font-weight:800;font-size:20px;" id="weekTasks">0</div>
+          <div class="small">tasks completed</div>
+        </div>
+        <div class="card" style="padding:12px;">
+          <div class="small">All time</div>
+          <div style="font-weight:800;font-size:20px;" id="allTasks">0</div>
+          <div class="small">tasks completed</div>
+        </div>
+      </div>
+
+      <div style="margin-top:12px;" class="card">
+        <div class="small">Current Streak</div>
+        <div style="font-weight:800;font-size:22px;" id="streak">0</div>
+      </div>
+    </div>
+
+    <!-- Customize -->
+    <div id="customizeView" class="card" style="display:none;">
+      <div class="title">Customize Companion</div>
+      <div class="small" style="margin-top:8px;">Pick a color</div>
+      <div style="margin-top:10px;" class="color-grid" id="colorGrid">
+        <!-- color swatches injected -->
+      </div>
+
+      <div style="margin-top:14px;">
+        <div class="small">Accessories</div>
+        <div class="accessory-grid" id="accessoryGrid">
+          <!-- accessories -->
+        </div>
+        <div class="small" style="margin-top:8px;">Accessories unlock as you level up.</div>
+      </div>
+    </div>
+
+    <!-- Nav -->
+    <div class="nav">
+      <button id="navHome" class="active">🏠 Home</button>
+      <button id="navTasks">✓ Tasks</button>
+      <button id="navProgress">📊 Progress</button>
+      <button id="navCustomize">🎨 Customize</button>
+    </div>
+  </div>
+
+  <script>
+  /***************
+   * HomeCare Companion - Single File App
+   * Guarantees:
+   *  - 8-10 tasks per day
+   *  - No repeats within the same day
+   *  - Task won't reappear until at least 2 days have passed
+   *  - localStorage kept tidy (no stacking)
+   *  - Deterministic daily selection (seeded by date)
+   ***************/
+
+  (function(){
+    // ---------- CONFIG ----------
+    const TASK_POOL = [
+      {name:"Make your bed", points:10},
+      {name:"Wipe kitchen counters", points:10},
+      {name:"Pick up clutter (5 min)", points:10},
+      {name:"Sweep entryway", points:10},
+      {name:"Clean bathroom sink", points:12},
+      {name:"Organize one small area", points:12},
+      {name:"Take out trash", points:8},
+      {name:"Do dishes / load dishwasher", points:12},
+      {name:"Vacuum main room", points:15},
+      {name:"Wipe mirrors", points:8},
+      {name:"Fold laundry (10 min)", points:12},
+      {name:"Water plants", points:6},
+      {name:"Declutter a drawer", points:12},
+      {name:"Dust surfaces", points:10},
+      {name:"Clear & wipe table", points:8}
+    ];
+
+    const LS_KEYS = {
+      todayDate: 'hc_taskDate',
+      todayTasks: 'hc_tasks',
+      history: 'hc_history',     // array of {date:'YYYY-MM-DD', tasks: [names]}
+      completions: 'hc_completed', // array of completed entries {taskName, completedAt (iso), points}
+      customization: 'hc_custom'
+    };
+
+    // ---------- UTIL ----------
+    function toISODate(d){ // yyyy-mm-dd
+      const dt = new Date(d);
+      return dt.toISOString().split('T')[0];
+    }
+
+    // seeded RNG (mulberry32-like) from string seed
+    function seedFromString(str){
+      let h=2166136261>>>0;
+      for(let i=0;i<str.length;i++){
+        h = Math.imul(h ^ str.charCodeAt(i), 16777619) >>> 0;
+      }
+      return h;
+    }
+    function mulberry32(a){
+      return function(){
+        a |= 0; a = a + 0x6D2B79F5 | 0;
+        let t = Math.imul(a ^ a >>> 15, 1 | a);
+        t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t;
+        return ((t ^ t >>> 14) >>> 0) / 4294967296;
+      };
+    }
+
+    function seededShuffle(arr, seedStr){
+      const seed = seedFromString(seedStr);
+      const rand = mulberry32(seed);
+      const copy = arr.slice();
+      for (let i = copy.length - 1; i > 0; i--){
+        const j = Math.floor(rand() * (i + 1));
+        [copy[i], copy[j]] = [copy[j], copy[i]];
+      }
+      return copy;
+    }
+
+    function readJSON(key, fallback){
+      try{ const v = localStorage.getItem(key); return v ? JSON.parse(v) : fallback; }catch(e){ return fallback; }
+    }
+    function writeJSON(key, obj){
+      try{ localStorage.setItem(key, JSON.stringify(obj)); }catch(e){}
+    }
+
+    // ---------- TASK LOGIC ----------
+    function loadTodayTasks(){
+      const savedDate = localStorage.getItem(LS_KEYS.todayDate);
+      const today = toISODate(new Date());
+      if(savedDate === today){
+        return readJSON(LS_KEYS.todayTasks, []);
+      }
+      // otherwise, generate new
+      const newTasks = generateTasksForToday();
+      writeJSON(LS_KEYS.todayTasks, newTasks);
+      localStorage.setItem(LS_KEYS.todayDate, today);
+      // update history: prepend today's tasks
+      const hist = readJSON(LS_KEYS.history, []);
+      hist.unshift({date: today, tasks: newTasks.map(t=>t.name)});
+      // keep history length to last 7 days (enough for safety)
+      writeJSON(LS_KEYS.history, hist.slice(0,7));
+      return newTasks;
+    }
+
+    function generateTasksForToday(){
+      const today = toISODate(new Date());
+      const hist = readJSON(LS_KEYS.history, []);
+      // gather tasks used in last 2 days (yesterday & day before)
+      const avoid = new Set();
+      if(hist[0]) avoidTasksFromDate(hist[0], avoid); // yesterday might be hist[0] if stored as most recent? careful:
+      // Our history stores newest first; hist[0] is yesterday only if date difference is 1. But easier: take the first two entries in hist where dates are the last two distinct days prior to today.
+      // We'll compute last two calendar dates:
+      const yesterday = new Date(); yesterday.setDate(yesterday.getDate() - 1);
+      const dayBefore = new Date(); dayBefore.setDate(dayBefore.getDate() - 2);
+      const yStr = toISODate(yesterday);
+      const dStr = toISODate(dayBefore);
+      for(const h of hist){
+        if(h.date === yStr || h.date === dStr){
+          (h.tasks || []).forEach(t => avoid.add(t));
+        }
+      }
+
+      // Pool of available tasks that are NOT in avoid
+      const available = TASK_POOL.filter(t => !avoid.has(t.name));
+      // If available < 10, fallback to full pool but still avoid duplicates in same day
+      const pool = available.length >= 10 ? available : TASK_POOL.slice();
+
+      // Deterministic shuffle seeded by today's date (so same tasks if generated multiple times same day)
+      const shuffled = seededShuffle(pool, toISODate(new Date()) + "_homecare_v1");
+
+      // Determine count (8-10), deterministic by date too
+      const daySeed = seedFromString(toISODate(new Date()));
+      const rand = mulberry32(daySeed);
+      const count = 8 + Math.floor(rand() * 3); // 8,9,10 deterministically
+
+      // Pick top 'count' unique tasks
+      const picked = [];
+      const pickedNames = new Set();
+      for(let i=0; i<shuffled.length && picked.length < count; i++){
+        const candidate = shuffled[i];
+        if(!pickedNames.has(candidate.name)){
+          picked.push({
+            id: `task_${toISODate(new Date())}_${i}`,
+            name: candidate.name,
+            points: candidate.points || 10,
+            completed: false,
+            createdAt: new Date().toISOString()
+          });
+          pickedNames.add(candidate.name);
+        }
+      }
+
+      // If insufficient (unlikely), fill from full pool
+      if(picked.length < count){
+        const fallback = seededShuffle(TASK_POOL, toISODate(new Date()) + "_fallback");
+        for(let i=0; picked.length < count && i<fallback.length; i++){
+          if(!pickedNames.has(fallback[i].name)){
+            picked.push({
+              id: `task_${toISODate(new Date())}_f${i}`,
+              name: fallback[i].name,
+              points: fallback[i].points || 10,
+              completed: false,
+              createdAt: new Date().toISOString()
+            });
+            pickedNames.add(fallback[i].name);
+          }
+        }
+      }
+
+      return picked;
+    }
+
+    // helper to add tasks into avoid set (if exists)
+    function avoidTasksFromDate(histEntry, set){
+      if(!histEntry || !histEntry.tasks) return;
+      histEntry.tasks.forEach(t => set.add(t));
+    }
+
+    // ---------- COMPLETION & STATS ----------
+    function saveTodayTasks(tasks){
+      writeJSON(LS_KEYS.todayTasks, tasks);
+    }
+
+    function toggleComplete(taskId){
+      const tasks = readJSON(LS_KEYS.todayTasks, []);
+      const idx = tasks.findIndex(t => t.id === taskId);
+      if(idx === -1) return;
+      tasks[idx].completed = !tasks[idx].completed;
+      if(tasks[idx].completed){
+        // push completion record (for all-time & week stats)
+        const all = readJSON(LS_KEYS.completions, []);
+        all.push({taskName: tasks[idx].name, completedAt: new Date().toISOString(), points: tasks[idx].points || 10});
+        writeJSON(LS_KEYS.completions, all);
+      } else {
+        // If un-checking, remove the last completion entry for that task on today's date (simple approach)
+        let all = readJSON(LS_KEYS.completions, []);
+        // find last entry matching taskName and date today
+        const todayISO = new Date().toISOString().split('T')[0];
+        for(let i=all.length-1;i>=0;i--){
+          if(all[i].taskName === tasks[idx].name && all[i].completedAt.split('T')[0] === todayISO){
+            all.splice(i,1);
+            break;
+          }
+        }
+        writeJSON(LS_KEYS.completions, all);
+      }
+      saveTodayTasks(tasks);
+      renderAll();
+    }
+
+    function calculateProgress(){
+      const tasks = readJSON(LS_KEYS.todayTasks, []);
+      const total = tasks.length;
+      const completed = tasks.filter(t => t.completed).length;
+      const percent = total === 0 ? 0 : Math.round((completed/total) * 100);
+      const allCompletions = readJSON(LS_KEYS.completions, []);
+      const totalPoints = allCompletions.reduce((s, c) => s + (c.points||0), 0);
+      // level: every 100 points = level up (starting at 1)
+      const level = Math.floor(totalPoints / 100) + 1;
+      return {total, completed, percent, totalPoints, level};
+    }
+
+    function calculateWeekStats(){
+      const all = readJSON(LS_KEYS.completions, []);
+      const now = new Date();
+      const weekStart = new Date(now); weekStart.setDate(now.getDate() - 6); // last 7 days inclusive
+      const weekISO = weekStart.toISOString().split('T')[0];
+      const week = all.filter(c => c.completedAt.split('T')[0] >= weekISO);
+      return {weekTasks: week.length, weekPoints: week.reduce((s,c)=>s+(c.points||0),0)};
+    }
+
+    function calculateStreak(){
+      // Streak: consecutive calendar days with at least one completion
+      const all = readJSON(LS_KEYS.completions, []);
+      const uniqueDates = Array.from(new Set(all.map(c => c.completedAt.split('T')[0]))).sort().reverse();
+      if(uniqueDates.length === 0) return 0;
+      let streak = 0;
+      let check = new Date(); // today
+      for(let i=0;;i++){
+        const dateStr = toISODate(check);
+        if(uniqueDates.includes(dateStr)){
+          streak++;
+          check.setDate(check.getDate() - 1);
+        } else break;
+      }
+      return streak;
+    }
+
+    // ---------- RENDER ----------
+    const taskContainer = document.getElementById('taskContainer');
+    function renderTasks(){
+      const tasks = readJSON(LS_KEYS.todayTasks, []);
+      if(tasks.length === 0){
+        taskContainer.innerHTML = '<div class="small center">No tasks for today. Try regenerating.</div>';
+        return;
+      }
+      const list = document.createElement('div');
+      list.className = 'tasks-list';
+      tasks.forEach(t=>{
+        const item = document.createElement('div');
+        item.className = 'task-item' + (t.completed ? ' completed' : '');
+        // checkbox
+        const chk = document.createElement('div');
+        chk.className = 'task-checkbox';
+        if(t.completed){ chk.classList.add('checked'); chk.style.background = getComputedStyle(document.documentElement).getPropertyValue('--primary'); }
+        chk.textContent = t.completed ? '✓' : '';
+        chk.setAttribute('role','button'); chk.setAttribute('aria-pressed', String(!!t.completed));
+        chk.addEventListener('click', (e)=>{
+          e.stopPropagation();
+          toggleComplete(t.id);
+        });
+        const name = document.createElement('div');
+        name.className = 'task-name';
+        name.textContent = t.name;
+        const pts = document.createElement('div');
+        pts.className = 'task-points';
+        pts.textContent = `+${t.points}`;
+        item.appendChild(chk);
+        item.appendChild(name);
+        item.appendChild(pts);
+
+        // entire row clickable toggles too
+        item.addEventListener('click', ()=>{
+          toggleComplete(t.id);
+        });
+
+        list.appendChild(item);
+      });
+      taskContainer.innerHTML = '';
+      taskContainer.appendChild(list);
+    }
+
+    function renderHome(){
+      const p = calculateProgress();
+      document.getElementById('todayCount').textContent = `${p.completed}/${p.total}`;
+      document.getElementById('pointsTotal').textContent = p.totalPoints || 0;
+      document.getElementById('progressPercent').textContent = `${p.percent}%`;
+      const fill = document.getElementById('progressFill');
+      fill.style.width = `${p.percent}%`;
+      fill.textContent = `${p.percent}%`;
+      document.getElementById('levelBadge').textContent = p.level;
+      // creature state
+      const status = document.getElementById('creatureStatus');
+      if(p.percent === 0) status.textContent = 'Waiting for tasks...';
+      else if(p.percent === 100) status.textContent = 'So happy! 🎉';
+      else status.textContent = 'Feeling motivated!';
+      // accessory unlock (update accessory grid)
+      updateAccessoryLocks(p.level);
+    }
+
+    function renderProgress(){
+      const week = calculateWeekStats();
+      const all = readJSON(LS_KEYS.completions, []);
+      document.getElementById('weekTasks').textContent = week.weekTasks;
+      document.getElementById('allTasks').textContent = all.length;
+      document.getElementById('streak').textContent = calculateStreak();
+    }
+
+    function renderAll(){
+      renderTasks();
+      renderHome();
+      renderProgress();
+      renderCustomizationUI();
+    }
+
+    // ---------- CUSTOMIZATION ----------
+    const defaultCustom = { color: '#FFB6D9', accessory: 'none' };
+    function loadCustom(){
+      return readJSON(LS_KEYS.customization, defaultCustom);
+    }
+    function saveCustom(c){
+      writeJSON(LS_KEYS.customization, c);
+      applyCustom(c);
+    }
+    function applyCustom(c){
+      // main blob body color
+      const blob = document.getElementById('blobBody');
+      if(blob) blob.setAttribute('fill', c.color || defaultCustom.color);
+      // accessory
+      const layer = document.getElementById('accessoryLayer');
+      layer.innerHTML = '';
+      if(c.accessory === 'bow') layer.innerHTML = '<text x="100" y="50" font-size="28" text-anchor="middle">🎀</text>';
+      if(c.accessory === 'hat') layer.innerHTML = '<text x="100" y="40" font-size="28" text-anchor="middle">🎩</text>';
+      if(c.accessory === 'glasses') layer.innerHTML = '<text x="100" y="70" font-size="20" text-anchor="middle">😎</text>';
+      if(c.accessory === 'crown') layer.innerHTML = '<text x="100" y="30" font-size="28" text-anchor="middle">👑</text>';
+    }
+    function renderCustomizationUI(){
+      const grid = document.getElementById('colorGrid');
+      if(!grid) return;
+      grid.innerHTML = '';
+      const colors = ['#FFB6D9','#B4A7FF','#87CEEB','#98FB98','#FFB347','#F08080','#DDA0DD','#F0E68C'];
+      const custom = loadCustom();
+      colors.forEach(c=>{
+        const sw = document.createElement('div');
+        sw.className = 'color-swatch';
+        sw.innerHTML = `<div class="color-swatch-inner" style="background:${c}"></div>`;
+        sw.addEventListener('click', ()=>{ saveCustom({color:c, accessory: custom.accessory}); });
+        grid.appendChild(sw);
+      });
+
+      // accessories
+      const accGrid = document.getElementById('accessoryGrid');
+      accGrid.innerHTML = '';
+      const accs = [
+        {id:'none', label:'None', lock:0},
+        {id:'bow', label:'🎀', lock:0},
+        {id:'hat', label:'🎩', lock:3},
+        {id:'glasses', label:'😎', lock:5},
+        {id:'flower', label:'🌸', lock:7},
+        {id:'crown', label:'👑', lock:10}
+      ];
+      const p = calculateProgress();
+      accs.forEach(a=>{
+        const btn = document.createElement('button');
+        btn.className = 'accessory-btn' + (a.lock > p.level ? ' locked' : '');
+        btn.textContent = a.label;
+        btn.disabled = a.lock > p.level;
+        btn.addEventListener('click', ()=>{
+          if(a.lock > p.level) return;
+          const cur = loadCustom();
+          saveCustom({color: cur.color, accessory: a.id});
+        });
+        accGrid.appendChild(btn);
+      });
+
+      applyCustom(loadCustom());
+    }
+
+    function updateAccessoryLocks(level){
+      // re-render accessory grid to show locks/unlocks
+      renderCustomizationUI();
+    }
+
+    // ---------- NAV ----------
+    document.getElementById('navHome').addEventListener('click', ()=>switchView('home'));
+    document.getElementById('navTasks').addEventListener('click', ()=>switchView('tasks'));
+    document.getElementById('navProgress').addEventListener('click', ()=>switchView('progress'));
+    document.getElementById('navCustomize').addEventListener('click', ()=>switchView('customize'));
+    document.getElementById('regenBtn').addEventListener('click', ()=>{ // force regenerate (but still respects 2-day rule)
+      // allow regeneration only once per day manually (it will use same deterministic algorithm), but user may want new options:
+      // we'll allow regeneration by changing today's date key to force generation but retain history rules.
+      const today = toISODate(new Date());
+      localStorage.removeItem(LS_KEYS.todayDate);
+      // generate and render
+      loadTodayTasks();
+      renderAll();
+    });
+
+    function switchView(name){
+      const views = {home:'homeView', tasks:'tasksView', progress:'progressView', customize:'customizeView'};
+      for(const k in views){
+        document.getElementById(views[k]).style.display = 'none';
+        document.getElementById('nav' + capitalize(k)).classList.remove('active');
+      }
+      document.getElementById(views[name]).style.display = '';
+      document.getElementById('nav' + capitalize(name)).classList.add('active');
+    }
+    function capitalize(s){ return s.charAt(0).toUpperCase() + s.slice(1); }
+
+    // ---------- INIT ----------
+    function init(){
+      // Ensure keys exist
+      if(!localStorage.getItem(LS_KEYS.history)) writeJSON(LS_KEYS.history, []);
+      if(!localStorage.getItem(LS_KEYS.completions)) writeJSON(LS_KEYS.completions, []);
+      if(!localStorage.getItem(LS_KEYS.customization)) writeJSON(LS_KEYS.customization, defaultCustom);
+
+      // Load/generate today's tasks
+      loadTodayTasks();
+      renderAll();
+
+      // apply custom colors
+      applyCustom(loadCustom());
+    }
+
+    // helper to write as used earlier
+    function writeJSON(key, obj){ try{ localStorage.setItem(key, JSON.stringify(obj)); }catch(e){} }
+    // start
+    init();
+
+    // expose for debugging in console if needed:
+    window._hc = {
+      reload: ()=>{ localStorage.removeItem(LS_KEYS.todayDate); loadTodayTasks(); renderAll(); },
+      resetAll: ()=>{ localStorage.removeItem(LS_KEYS.todayDate); localStorage.removeItem(LS_KEYS.todayTasks); localStorage.removeItem(LS_KEYS.history); localStorage.removeItem(LS_KEYS.completions); localStorage.removeItem(LS_KEYS.customization); init(); },
+      keys: LS_KEYS
+    };
+  })();
+  </script>
+</body>
+</html>
