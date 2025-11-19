@@ -77,7 +77,6 @@
       </header>
 
       <div class="creature-wrap card" style="padding:14px;">
-        <!-- simple round blob SVG (easy to style) -->
         <svg class="creature" viewBox="0 0 200 200" id="creatureSVG" aria-hidden="true">
           <ellipse cx="100" cy="130" rx="45" ry="12" fill="rgba(0,0,0,0.08)"/>
           <circle cx="100" cy="90" r="70" id="blobBody" fill="#FFB6D9"/>
@@ -122,9 +121,7 @@
         </div>
       </div>
 
-      <div style="margin-top:12px;" id="taskContainer">
-        <!-- task list rendered here -->
-      </div>
+      <div style="margin-top:12px;" id="taskContainer"></div>
       <div class="small center" style="margin-top:10px;">Tasks refresh daily. Same task will not reappear for 2 days.</div>
     </div>
 
@@ -156,15 +153,11 @@
     <div id="customizeView" class="card" style="display:none;">
       <div class="title">Customize Companion</div>
       <div class="small" style="margin-top:8px;">Pick a color</div>
-      <div style="margin-top:10px;" class="color-grid" id="colorGrid">
-        <!-- color swatches injected -->
-      </div>
+      <div style="margin-top:10px;" class="color-grid" id="colorGrid"></div>
 
       <div style="margin-top:14px;">
         <div class="small">Accessories</div>
-        <div class="accessory-grid" id="accessoryGrid">
-          <!-- accessories -->
-        </div>
+        <div class="accessory-grid" id="accessoryGrid"></div>
         <div class="small" style="margin-top:8px;">Accessories unlock as you level up.</div>
       </div>
     </div>
@@ -179,16 +172,6 @@
   </div>
 
   <script>
-  /***************
-   * HomeCare Companion - Single File App
-   * Guarantees:
-   *  - 8-10 tasks per day
-   *  - No repeats within the same day
-   *  - Task won't reappear until at least 2 days have passed
-   *  - localStorage kept tidy (no stacking)
-   *  - Deterministic daily selection (seeded by date)
-   ***************/
-
   (function(){
     // ---------- CONFIG ----------
     const TASK_POOL = [
@@ -206,40 +189,40 @@
       {name:"Water plants", points:6},
       {name:"Declutter a drawer", points:12},
       {name:"Dust surfaces", points:10},
-      {name:"Clear & wipe table", points:8}
+      {name:"Clear & wipe table", points:8},
+      {name:"Wash bed sheets", points:14},
+      {name:"Organize closet", points:14},
+      {name:"Wash towels", points:12},
+      {name:"Wash rags", points:10},
+      {name:"Wash curtains", points:14},
+      {name:"Clean windows", points:15},
+      {name:"Clean fans", points:12},
+      {name:"Organize classroom", points:14},
+      {name:"Organize living room", points:12},
+      {name:"Organize kids bedroom", points:14},
+      {name:"Mop 2 areas", points:15},
+      {name:"Clean toilet", points:12},
+      {name:"Wash shower and tub", points:15}
     ];
 
     const LS_KEYS = {
       todayDate: 'hc_taskDate',
       todayTasks: 'hc_tasks',
-      history: 'hc_history',     // array of {date:'YYYY-MM-DD', tasks: [names]}
-      completions: 'hc_completed', // array of completed entries {taskName, completedAt (iso), points}
+      history: 'hc_history',     
+      completions: 'hc_completed',
       customization: 'hc_custom'
     };
 
-    // ---------- UTIL ----------
-    function toISODate(d){ // yyyy-mm-dd
-      const dt = new Date(d);
-      return dt.toISOString().split('T')[0];
-    }
+    function toISODate(d){ return new Date(d).toISOString().split('T')[0]; }
 
-    // seeded RNG (mulberry32-like) from string seed
     function seedFromString(str){
       let h=2166136261>>>0;
-      for(let i=0;i<str.length;i++){
-        h = Math.imul(h ^ str.charCodeAt(i), 16777619) >>> 0;
-      }
+      for(let i=0;i<str.length;i++){ h = Math.imul(h ^ str.charCodeAt(i), 16777619) >>> 0; }
       return h;
     }
     function mulberry32(a){
-      return function(){
-        a |= 0; a = a + 0x6D2B79F5 | 0;
-        let t = Math.imul(a ^ a >>> 15, 1 | a);
-        t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t;
-        return ((t ^ t >>> 14) >>> 0) / 4294967296;
-      };
+      return function(){ a |= 0; a = a + 0x6D2B79F5 | 0; let t = Math.imul(a ^ a >>> 15, 1 | a); t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; };
     }
-
     function seededShuffle(arr, seedStr){
       const seed = seedFromString(seedStr);
       const rand = mulberry32(seed);
@@ -250,29 +233,19 @@
       }
       return copy;
     }
-
-    function readJSON(key, fallback){
-      try{ const v = localStorage.getItem(key); return v ? JSON.parse(v) : fallback; }catch(e){ return fallback; }
-    }
-    function writeJSON(key, obj){
-      try{ localStorage.setItem(key, JSON.stringify(obj)); }catch(e){}
-    }
+    function readJSON(key,fallback){try{ const v=localStorage.getItem(key); return v?JSON.parse(v):fallback;}catch(e){return fallback;}}
+    function writeJSON(key,obj){try{localStorage.setItem(key,JSON.stringify(obj));}catch(e){}} 
 
     // ---------- TASK LOGIC ----------
     function loadTodayTasks(){
       const savedDate = localStorage.getItem(LS_KEYS.todayDate);
       const today = toISODate(new Date());
-      if(savedDate === today){
-        return readJSON(LS_KEYS.todayTasks, []);
-      }
-      // otherwise, generate new
+      if(savedDate === today) return readJSON(LS_KEYS.todayTasks, []);
       const newTasks = generateTasksForToday();
-      writeJSON(LS_KEYS.todayTasks, newTasks);
-      localStorage.setItem(LS_KEYS.todayDate, today);
-      // update history: prepend today's tasks
+      writeJSON(LS_KEYS.todayTasks,newTasks);
+      localStorage.setItem(LS_KEYS.todayDate,today);
       const hist = readJSON(LS_KEYS.history, []);
       hist.unshift({date: today, tasks: newTasks.map(t=>t.name)});
-      // keep history length to last 7 days (enough for safety)
       writeJSON(LS_KEYS.history, hist.slice(0,7));
       return newTasks;
     }
@@ -280,344 +253,118 @@
     function generateTasksForToday(){
       const today = toISODate(new Date());
       const hist = readJSON(LS_KEYS.history, []);
-      // gather tasks used in last 2 days (yesterday & day before)
       const avoid = new Set();
-      if(hist[0]) avoidTasksFromDate(hist[0], avoid); // yesterday might be hist[0] if stored as most recent? careful:
-      // Our history stores newest first; hist[0] is yesterday only if date difference is 1. But easier: take the first two entries in hist where dates are the last two distinct days prior to today.
-      // We'll compute last two calendar dates:
-      const yesterday = new Date(); yesterday.setDate(yesterday.getDate() - 1);
-      const dayBefore = new Date(); dayBefore.setDate(dayBefore.getDate() - 2);
-      const yStr = toISODate(yesterday);
-      const dStr = toISODate(dayBefore);
-      for(const h of hist){
-        if(h.date === yStr || h.date === dStr){
-          (h.tasks || []).forEach(t => avoid.add(t));
-        }
-      }
-
-      // Pool of available tasks that are NOT in avoid
-      const available = TASK_POOL.filter(t => !avoid.has(t.name));
-      // If available < 10, fallback to full pool but still avoid duplicates in same day
-      const pool = available.length >= 10 ? available : TASK_POOL.slice();
-
-      // Deterministic shuffle seeded by today's date (so same tasks if generated multiple times same day)
-      const shuffled = seededShuffle(pool, toISODate(new Date()) + "_homecare_v1");
-
-      // Determine count (8-10), deterministic by date too
-      const daySeed = seedFromString(toISODate(new Date()));
-      const rand = mulberry32(daySeed);
-      const count = 8 + Math.floor(rand() * 3); // 8,9,10 deterministically
-
-      // Pick top 'count' unique tasks
+      const yesterday = new Date(); yesterday.setDate(yesterday.getDate()-1);
+      const dayBefore = new Date(); dayBefore.setDate(dayBefore.getDate()-2);
+      const avoidDates = [toISODate(yesterday), toISODate(dayBefore)];
+      hist.forEach(entry => { if(avoidDates.includes(entry.date)){ entry.tasks.forEach(t=>avoid.add(t)); } });
+      let available = TASK_POOL.filter(t => !avoid.has(t.name));
+      if(available.length < 10) available = TASK_POOL.slice();
+      const shuffled = seededShuffle(available, today + "_homecare_v2");
+      const rand = mulberry32(seedFromString(today));
+      const count = 8 + Math.floor(rand() * 3);
       const picked = [];
       const pickedNames = new Set();
-      for(let i=0; i<shuffled.length && picked.length < count; i++){
-        const candidate = shuffled[i];
-        if(!pickedNames.has(candidate.name)){
-          picked.push({
-            id: `task_${toISODate(new Date())}_${i}`,
-            name: candidate.name,
-            points: candidate.points || 10,
-            completed: false,
-            createdAt: new Date().toISOString()
-          });
-          pickedNames.add(candidate.name);
+      for(let t of shuffled){
+        if(!pickedNames.has(t.name)){
+          picked.push({id:`task_${today}_${picked.length}`, name:t.name, points:t.points||10, completed:false, createdAt:new Date().toISOString()});
+          pickedNames.add(t.name);
         }
+        if(picked.length>=count) break;
       }
-
-      // If insufficient (unlikely), fill from full pool
-      if(picked.length < count){
-        const fallback = seededShuffle(TASK_POOL, toISODate(new Date()) + "_fallback");
-        for(let i=0; picked.length < count && i<fallback.length; i++){
-          if(!pickedNames.has(fallback[i].name)){
-            picked.push({
-              id: `task_${toISODate(new Date())}_f${i}`,
-              name: fallback[i].name,
-              points: fallback[i].points || 10,
-              completed: false,
-              createdAt: new Date().toISOString()
-            });
-            pickedNames.add(fallback[i].name);
-          }
-        }
-      }
-
       return picked;
-    }
-
-    // helper to add tasks into avoid set (if exists)
-    function avoidTasksFromDate(histEntry, set){
-      if(!histEntry || !histEntry.tasks) return;
-      histEntry.tasks.forEach(t => set.add(t));
-    }
-
-    // ---------- COMPLETION & STATS ----------
-    function saveTodayTasks(tasks){
-      writeJSON(LS_KEYS.todayTasks, tasks);
     }
 
     function toggleComplete(taskId){
       const tasks = readJSON(LS_KEYS.todayTasks, []);
-      const idx = tasks.findIndex(t => t.id === taskId);
-      if(idx === -1) return;
+      const idx = tasks.findIndex(t=>t.id===taskId); if(idx===-1) return;
       tasks[idx].completed = !tasks[idx].completed;
-      if(tasks[idx].completed){
-        // push completion record (for all-time & week stats)
-        const all = readJSON(LS_KEYS.completions, []);
-        all.push({taskName: tasks[idx].name, completedAt: new Date().toISOString(), points: tasks[idx].points || 10});
-        writeJSON(LS_KEYS.completions, all);
-      } else {
-        // If un-checking, remove the last completion entry for that task on today's date (simple approach)
-        let all = readJSON(LS_KEYS.completions, []);
-        // find last entry matching taskName and date today
-        const todayISO = new Date().toISOString().split('T')[0];
-        for(let i=all.length-1;i>=0;i--){
-          if(all[i].taskName === tasks[idx].name && all[i].completedAt.split('T')[0] === todayISO){
-            all.splice(i,1);
-            break;
-          }
-        }
-        writeJSON(LS_KEYS.completions, all);
-      }
-      saveTodayTasks(tasks);
+      let all = readJSON(LS_KEYS.completions, []);
+      const todayISO = new Date().toISOString().split('T')[0];
+      if(tasks[idx].completed){ all.push({taskName: tasks[idx].name, completedAt: new Date().toISOString(), points: tasks[idx].points||10}); }
+      else { for(let i=all.length-1;i>=0;i--){ if(all[i].taskName===tasks[idx].name && all[i].completedAt.split('T')[0]===todayISO){ all.splice(i,1); break; } } }
+      writeJSON(LS_KEYS.completions, all);
+      writeJSON(LS_KEYS.todayTasks, tasks);
       renderAll();
     }
 
     function calculateProgress(){
       const tasks = readJSON(LS_KEYS.todayTasks, []);
       const total = tasks.length;
-      const completed = tasks.filter(t => t.completed).length;
-      const percent = total === 0 ? 0 : Math.round((completed/total) * 100);
+      const completed = tasks.filter(t=>t.completed).length;
+      const percent = total===0?0:Math.round((completed/total)*100);
       const allCompletions = readJSON(LS_KEYS.completions, []);
-      const totalPoints = allCompletions.reduce((s, c) => s + (c.points||0), 0);
-      // level: every 100 points = level up (starting at 1)
-      const level = Math.floor(totalPoints / 100) + 1;
+      const totalPoints = allCompletions.reduce((s,c)=>s+(c.points||0),0);
+      const level = Math.floor(totalPoints/100)+1;
       return {total, completed, percent, totalPoints, level};
     }
-
     function calculateWeekStats(){
       const all = readJSON(LS_KEYS.completions, []);
       const now = new Date();
-      const weekStart = new Date(now); weekStart.setDate(now.getDate() - 6); // last 7 days inclusive
+      const weekStart = new Date(now); weekStart.setDate(now.getDate()-6);
       const weekISO = weekStart.toISOString().split('T')[0];
-      const week = all.filter(c => c.completedAt.split('T')[0] >= weekISO);
-      return {weekTasks: week.length, weekPoints: week.reduce((s,c)=>s+(c.points||0),0)};
-    }
-
-    function calculateStreak(){
-      // Streak: consecutive calendar days with at least one completion
-      const all = readJSON(LS_KEYS.completions, []);
-      const uniqueDates = Array.from(new Set(all.map(c => c.completedAt.split('T')[0]))).sort().reverse();
-      if(uniqueDates.length === 0) return 0;
-      let streak = 0;
-      let check = new Date(); // today
-      for(let i=0;;i++){
-        const dateStr = toISODate(check);
-        if(uniqueDates.includes(dateStr)){
-          streak++;
-          check.setDate(check.getDate() - 1);
-        } else break;
-      }
-      return streak;
+      const week = all.filter(c=>c.completedAt.split('T')[0]>=weekISO).length;
+      return {week, allTime: all.length};
     }
 
     // ---------- RENDER ----------
     const taskContainer = document.getElementById('taskContainer');
     function renderTasks(){
       const tasks = readJSON(LS_KEYS.todayTasks, []);
-      if(tasks.length === 0){
-        taskContainer.innerHTML = '<div class="small center">No tasks for today. Try regenerating.</div>';
-        return;
-      }
-      const list = document.createElement('div');
-      list.className = 'tasks-list';
+      taskContainer.innerHTML='';
       tasks.forEach(t=>{
-        const item = document.createElement('div');
-        item.className = 'task-item' + (t.completed ? ' completed' : '');
-        // checkbox
-        const chk = document.createElement('div');
-        chk.className = 'task-checkbox';
-        if(t.completed){ chk.classList.add('checked'); chk.style.background = getComputedStyle(document.documentElement).getPropertyValue('--primary'); }
-        chk.textContent = t.completed ? '✓' : '';
-        chk.setAttribute('role','button'); chk.setAttribute('aria-pressed', String(!!t.completed));
-        chk.addEventListener('click', (e)=>{
-          e.stopPropagation();
-          toggleComplete(t.id);
-        });
-        const name = document.createElement('div');
-        name.className = 'task-name';
-        name.textContent = t.name;
-        const pts = document.createElement('div');
-        pts.className = 'task-points';
-        pts.textContent = `+${t.points}`;
-        item.appendChild(chk);
-        item.appendChild(name);
-        item.appendChild(pts);
-
-        // entire row clickable toggles too
-        item.addEventListener('click', ()=>{
-          toggleComplete(t.id);
-        });
-
-        list.appendChild(item);
+        const div = document.createElement('div');
+        div.className='task-item'+(t.completed?' completed':'');
+        div.setAttribute('role','button');
+        div.setAttribute('aria-pressed', t.completed?'true':'false');
+        div.onclick=()=>toggleComplete(t.id);
+        div.innerHTML=`<div class="task-checkbox">${t.completed?'✓':''}</div>
+                        <div class="task-name">${t.name}</div>
+                        <div class="task-points">${t.points} pts</div>`;
+        taskContainer.appendChild(div);
       });
-      taskContainer.innerHTML = '';
-      taskContainer.appendChild(list);
-    }
-
-    function renderHome(){
-      const p = calculateProgress();
-      document.getElementById('todayCount').textContent = `${p.completed}/${p.total}`;
-      document.getElementById('pointsTotal').textContent = p.totalPoints || 0;
-      document.getElementById('progressPercent').textContent = `${p.percent}%`;
-      const fill = document.getElementById('progressFill');
-      fill.style.width = `${p.percent}%`;
-      fill.textContent = `${p.percent}%`;
-      document.getElementById('levelBadge').textContent = p.level;
-      // creature state
-      const status = document.getElementById('creatureStatus');
-      if(p.percent === 0) status.textContent = 'Waiting for tasks...';
-      else if(p.percent === 100) status.textContent = 'So happy! 🎉';
-      else status.textContent = 'Feeling motivated!';
-      // accessory unlock (update accessory grid)
-      updateAccessoryLocks(p.level);
-    }
-
-    function renderProgress(){
-      const week = calculateWeekStats();
-      const all = readJSON(LS_KEYS.completions, []);
-      document.getElementById('weekTasks').textContent = week.weekTasks;
-      document.getElementById('allTasks').textContent = all.length;
-      document.getElementById('streak').textContent = calculateStreak();
     }
 
     function renderAll(){
       renderTasks();
-      renderHome();
-      renderProgress();
-      renderCustomizationUI();
-    }
-
-    // ---------- CUSTOMIZATION ----------
-    const defaultCustom = { color: '#FFB6D9', accessory: 'none' };
-    function loadCustom(){
-      return readJSON(LS_KEYS.customization, defaultCustom);
-    }
-    function saveCustom(c){
-      writeJSON(LS_KEYS.customization, c);
-      applyCustom(c);
-    }
-    function applyCustom(c){
-      // main blob body color
-      const blob = document.getElementById('blobBody');
-      if(blob) blob.setAttribute('fill', c.color || defaultCustom.color);
-      // accessory
-      const layer = document.getElementById('accessoryLayer');
-      layer.innerHTML = '';
-      if(c.accessory === 'bow') layer.innerHTML = '<text x="100" y="50" font-size="28" text-anchor="middle">🎀</text>';
-      if(c.accessory === 'hat') layer.innerHTML = '<text x="100" y="40" font-size="28" text-anchor="middle">🎩</text>';
-      if(c.accessory === 'glasses') layer.innerHTML = '<text x="100" y="70" font-size="20" text-anchor="middle">😎</text>';
-      if(c.accessory === 'crown') layer.innerHTML = '<text x="100" y="30" font-size="28" text-anchor="middle">👑</text>';
-    }
-    function renderCustomizationUI(){
-      const grid = document.getElementById('colorGrid');
-      if(!grid) return;
-      grid.innerHTML = '';
-      const colors = ['#FFB6D9','#B4A7FF','#87CEEB','#98FB98','#FFB347','#F08080','#DDA0DD','#F0E68C'];
-      const custom = loadCustom();
-      colors.forEach(c=>{
-        const sw = document.createElement('div');
-        sw.className = 'color-swatch';
-        sw.innerHTML = `<div class="color-swatch-inner" style="background:${c}"></div>`;
-        sw.addEventListener('click', ()=>{ saveCustom({color:c, accessory: custom.accessory}); });
-        grid.appendChild(sw);
-      });
-
-      // accessories
-      const accGrid = document.getElementById('accessoryGrid');
-      accGrid.innerHTML = '';
-      const accs = [
-        {id:'none', label:'None', lock:0},
-        {id:'bow', label:'🎀', lock:0},
-        {id:'hat', label:'🎩', lock:3},
-        {id:'glasses', label:'😎', lock:5},
-        {id:'flower', label:'🌸', lock:7},
-        {id:'crown', label:'👑', lock:10}
-      ];
       const p = calculateProgress();
-      accs.forEach(a=>{
-        const btn = document.createElement('button');
-        btn.className = 'accessory-btn' + (a.lock > p.level ? ' locked' : '');
-        btn.textContent = a.label;
-        btn.disabled = a.lock > p.level;
-        btn.addEventListener('click', ()=>{
-          if(a.lock > p.level) return;
-          const cur = loadCustom();
-          saveCustom({color: cur.color, accessory: a.id});
-        });
-        accGrid.appendChild(btn);
-      });
-
-      applyCustom(loadCustom());
+      document.getElementById('todayCount').innerText=`${p.completed}/${p.total}`;
+      document.getElementById('pointsTotal').innerText=p.totalPoints;
+      document.getElementById('progressPercent').innerText=p.percent+'%';
+      document.getElementById('progressFill').style.width=p.percent+'%';
+      document.getElementById('levelBadge').innerText=p.level;
+      const ws = calculateWeekStats();
+      document.getElementById('weekTasks').innerText=ws.week;
+      document.getElementById('allTasks').innerText=ws.allTime;
     }
 
-    function updateAccessoryLocks(level){
-      // re-render accessory grid to show locks/unlocks
-      renderCustomizationUI();
-    }
-
-    // ---------- NAV ----------
-    document.getElementById('navHome').addEventListener('click', ()=>switchView('home'));
-    document.getElementById('navTasks').addEventListener('click', ()=>switchView('tasks'));
-    document.getElementById('navProgress').addEventListener('click', ()=>switchView('progress'));
-    document.getElementById('navCustomize').addEventListener('click', ()=>switchView('customize'));
-    document.getElementById('regenBtn').addEventListener('click', ()=>{ // force regenerate (but still respects 2-day rule)
-      // allow regeneration only once per day manually (it will use same deterministic algorithm), but user may want new options:
-      // we'll allow regeneration by changing today's date key to force generation but retain history rules.
-      const today = toISODate(new Date());
+    document.getElementById('regenBtn').onclick=()=>{
+      localStorage.removeItem(LS_KEYS.todayTasks);
       localStorage.removeItem(LS_KEYS.todayDate);
-      // generate and render
       loadTodayTasks();
       renderAll();
-    });
-
-    function switchView(name){
-      const views = {home:'homeView', tasks:'tasksView', progress:'progressView', customize:'customizeView'};
-      for(const k in views){
-        document.getElementById(views[k]).style.display = 'none';
-        document.getElementById('nav' + capitalize(k)).classList.remove('active');
-      }
-      document.getElementById(views[name]).style.display = '';
-      document.getElementById('nav' + capitalize(name)).classList.add('active');
     }
-    function capitalize(s){ return s.charAt(0).toUpperCase() + s.slice(1); }
 
     // ---------- INIT ----------
-    function init(){
-      // Ensure keys exist
-      if(!localStorage.getItem(LS_KEYS.history)) writeJSON(LS_KEYS.history, []);
-      if(!localStorage.getItem(LS_KEYS.completions)) writeJSON(LS_KEYS.completions, []);
-      if(!localStorage.getItem(LS_KEYS.customization)) writeJSON(LS_KEYS.customization, defaultCustom);
+    loadTodayTasks();
+    renderAll();
 
-      // Load/generate today's tasks
-      loadTodayTasks();
-      renderAll();
-
-      // apply custom colors
-      applyCustom(loadCustom());
+    // ---------- NAV ----------
+    function showView(id){
+      ['homeView','tasksView','progressView','customizeView'].forEach(v=>{
+        document.getElementById(v).style.display=(v===id)?'block':'none';
+      });
+      document.querySelectorAll('.nav button').forEach(b=>b.classList.remove('active'));
+      if(id==='homeView') document.getElementById('navHome').classList.add('active');
+      if(id==='tasksView') document.getElementById('navTasks').classList.add('active');
+      if(id==='progressView') document.getElementById('navProgress').classList.add('active');
+      if(id==='customizeView') document.getElementById('navCustomize').classList.add('active');
     }
+    document.getElementById('navHome').onclick=()=>showView('homeView');
+    document.getElementById('navTasks').onclick=()=>showView('tasksView');
+    document.getElementById('navProgress').onclick=()=>showView('progressView');
+    document.getElementById('navCustomize').onclick=()=>showView('customizeView');
 
-    // helper to write as used earlier
-    function writeJSON(key, obj){ try{ localStorage.setItem(key, JSON.stringify(obj)); }catch(e){} }
-    // start
-    init();
-
-    // expose for debugging in console if needed:
-    window._hc = {
-      reload: ()=>{ localStorage.removeItem(LS_KEYS.todayDate); loadTodayTasks(); renderAll(); },
-      resetAll: ()=>{ localStorage.removeItem(LS_KEYS.todayDate); localStorage.removeItem(LS_KEYS.todayTasks); localStorage.removeItem(LS_KEYS.history); localStorage.removeItem(LS_KEYS.completions); localStorage.removeItem(LS_KEYS.customization); init(); },
-      keys: LS_KEYS
-    };
   })();
   </script>
 </body>
